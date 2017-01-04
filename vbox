@@ -1,0 +1,163 @@
+#!/bin/bash
+# Manage VM nodes which have a specific set of hardware attributes.
+
+# Make sure the networking setup is up to date.
+sudo sysctl -w net.inet.ip.forwarding=1
+sudo pfctl -e -f /etc/pf.conf
+
+# Load the nodes information.
+source nodes.env
+
+DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+: ${VBOX_NET:=vboxnet0}
+
+function main {
+  local arg="$1"
+  shift
+  case "$arg" in
+    "create") create "$@"; start "headless" "$@";;
+    "start") start "headless" "$@";;
+    "start-gui") start "gui" "$@";;
+    "reboot") reboot "$@";;
+    "reboot-disk") reboot_disk "$@";;
+    "reboot-net") reboot_net "$@";;
+    "shutdown") shutdown "$@";;
+    "poweroff") poweroff "$@";;
+    "destroy") poweroff "$@"; sleep 1; destroy "$@";;
+    *)
+      usage
+      exit 2
+      ;;
+  esac
+}
+
+function usage {
+  echo "USAGE: ${0##*/} <command>"
+  echo "Commands:"
+  echo -e "\tcreate|create virtualbox nodes\n" \
+  "\tstart|start virtualbox nodes\n" \
+  "\tstart-gui|start virtualbox nodes and show Virtualbox GUI\n" \
+  "\treboot|reboot the virtualbox nodes\n" \
+  "\treboot-disk|reboot the virtualbox nodes using disk as first priority for boot\n" \
+  "\treboot-net|reboot the virtualbox nodes using net as first priority for boot\n" \
+  "\tshutdown|shutdown the virtualbox nodes\n" \
+  "\tpoweroff|poweroff the virtualbox nodes\n" \
+  "\tdestroy|destroy the virtualbox nodes" | column -t -s '|'
+}
+
+function vboxmanagewrapper {
+    $DIR/vboxmanage $@
+}
+
+function create_node {
+  if ! [[ "$1" =~ node[1-4] ]]; then
+      echo "invalid argument $1"
+      exit 1
+  fi
+
+  NODE=$(echo $1 | awk '{print toupper($0)}')
+  eval "NODE_NAME"="\$${NODE}_NAME"
+  eval "NODE_MAC"="\$${NODE}_MAC"
+  vboxmanagewrapper create_vm "$NODE_NAME" "$NODE_MAC" "$VBOX_NET"
+}
+
+function create {
+    local node_list="${nodes[@]}"
+    if [ "$#" != "0" ]; then
+        node_list="$@"
+    fi
+
+    for node in ${node_list[@]}; do
+        echo "creating $node"
+        create_node $node
+    done
+}
+
+function start {
+    local start_type="$1"
+    shift
+
+    local node_list="${nodes[@]}"
+    if [ "$#" != "0" ]; then
+        node_list="$@"
+    fi
+
+    for node in ${node_list[@]}; do
+        echo "starting $node"
+        vboxmanagewrapper start_vm $node $start_type
+    done
+}
+
+function reboot {
+    local node_list="${nodes[@]}"
+    if [ "$#" != "0" ]; then
+        node_list="$@"
+    fi
+
+    for node in ${node_list[@]}; do
+        echo "rebooting $node"
+        vboxmanagewrapper reboot_vm $node
+    done
+}
+
+function reboot_net {
+    local node_list="${nodes[@]}"
+    if [ "$#" != "0" ]; then
+        node_list="$@"
+    fi
+
+    for node in ${node_list[@]}; do
+        echo "rebooting $node"
+        vboxmanagewrapper reboot_vm_net $node
+    done
+}
+
+function reboot_disk {
+    local node_list="${nodes[@]}"
+    if [ "$#" != "0" ]; then
+        node_list="$@"
+    fi
+
+    for node in ${node_list[@]}; do
+        echo "rebooting $node"
+        vboxmanagewrapper reboot_vm_disk $node
+    done
+}
+
+function shutdown {
+    local node_list="${nodes[@]}"
+    if [ "$#" != "0" ]; then
+        node_list="$@"
+    fi
+
+    for node in ${node_list[@]}; do
+        echo "shutting down $node"
+        vboxmanagewrapper shutdown_vm $node
+    done
+}
+
+function poweroff {
+    local node_list="${nodes[@]}"
+    if [ "$#" != "0" ]; then
+        node_list="$@"
+    fi
+
+    for node in ${node_list[@]}; do
+        echo "powering off $node"
+        vboxmanagewrapper poweroff_vm $node
+    done
+}
+
+function destroy {
+    local node_list="${nodes[@]}"
+    if [ "$#" != "0" ]; then
+        node_list="$@"
+    fi
+
+    for node in ${node_list[@]}; do
+        echo "destroying $node"
+        vboxmanagewrapper destroy_vm "$node"
+    done
+}
+
+main $@

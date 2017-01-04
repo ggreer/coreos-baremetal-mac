@@ -1,0 +1,71 @@
+#!/usr/bin/env bash
+
+function main {
+    local subcmd="$1"
+    shift
+    $subcmd "$@"
+}
+
+function create_vm {
+    local VM_NAME=$1
+    local MAC=${2//:}
+    local ADAPTOR=$3
+    local VM_DIR="/Users/mentalow/VirtualBox VMs/$VM_NAME"
+
+    VBoxManage createvm --name "$VM_NAME" --register
+    VBoxManage modifyvm "$VM_NAME" --memory 1024 --cpus 1 --boot1 disk --boot2 net --boot3 none --boot4 none
+    VBoxManage modifyvm "$VM_NAME" --audio none --ostype Linux_64 --vram 16 --acpi on
+    VBoxManage modifyvm "$VM_NAME" --nic1 hostonly --nictype1 virtio --hostonlyadapter1 "$ADAPTOR" --cableconnected1 on
+    # VBoxManage modifyvm "$VM_NAME" --nic2 intnet --nictype2 82545EM --intnet2 "metal" --cableconnected2 on
+    # VBoxManage modifyvm "$VM_NAME" --nic3 intnet --nictype3 83545EM --intnet3 "metal" --cableconnected3 on
+    VBoxManage modifyvm "$VM_NAME" --macaddress1 "$MAC"
+    VBoxManage createhd --filename "$VM_DIR/disk1.vdi" --size 8128
+    VBoxManage storagectl "$VM_NAME" --name "SATA" --add sata
+    VBoxManage storageattach "$VM_NAME" --storagectl "SATA" --port 0 --device 0 --type hdd --medium "$VM_DIR/disk1.vdi"
+}
+
+function destroy_vm {
+    local VM_NAME=$1
+    local VM_DIR="/Users/chance/VirtualBox VMs/$VM_NAME"
+
+    VBoxManage unregistervm $VM_NAME --delete
+    rm -rf $VM_DIR
+}
+
+function start_vm {
+    local VM_NAME=$1
+    local START_TYPE="$2"
+    VBoxManage startvm $VM_NAME --type "$START_TYPE"
+}
+
+function poweroff_vm {
+    local VM_NAME=$1
+    VBoxManage controlvm "$VM_NAME" poweroff
+}
+
+function shutdown_vm {
+    local VM_NAME=$1
+    VBoxManage controlvm "$VM_NAME" acpipowerbutton
+}
+
+function reboot_vm {
+    local VM_NAME=$1
+    VBoxManage controlvm "$VM_NAME" reset
+}
+
+function reboot_vm_net {
+    local VM_NAME=$1
+    poweroff_vm "$VM_NAME" || true
+    VBoxManage modifyvm "$VM_NAME" --boot1 net --boot2 disk --boot3 none --boot4 none
+    start_vm "$VM_NAME" headless
+}
+
+function reboot_vm_disk {
+    local VM_NAME=$1
+    poweroff_vm "$VM_NAME" || true
+    VBoxManage modifyvm "$VM_NAME" --boot1 disk --boot2 net --boot3 none --boot4 none
+    start_vm "$VM_NAME" headless
+}
+
+main $@
+
