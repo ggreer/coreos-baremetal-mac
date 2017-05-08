@@ -10,7 +10,7 @@ function create_vm {
     local VM_NAME=$1
     local MAC=${2//:}
     local ADAPTOR=$3
-    local VM_DIR="/Users/mentalow/VirtualBox VMs/$VM_NAME"
+    local VM_DIR="$HOME/VirtualBox VMs/$VM_NAME"
 
     VBoxManage createvm --name "$VM_NAME" --register
     VBoxManage modifyvm "$VM_NAME" --memory 2048 --cpus 1 --boot1 disk --boot2 net --boot3 none --boot4 none
@@ -26,7 +26,7 @@ function create_vm {
 
 function destroy_vm {
     local VM_NAME=$1
-    local VM_DIR="/Users/chance/VirtualBox VMs/$VM_NAME"
+    local VM_DIR="$HOME/VirtualBox VMs/$VM_NAME"
 
     VBoxManage unregistervm $VM_NAME --delete
     rm -rf $VM_DIR
